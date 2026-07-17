@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ching Massage and Spa — Booking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FDFCEA;
+    --bg-alt:#F3ECD9;
+    --gold:#B89052;
+    --gold-light:#DAC189;
+    --sage:#8CC2A8;
+    --text:#5a3e1b;
+    --red:#D9534F;
+    --blue:#5B84C4;
+    --done:#B8A387;
+    --white:#ffffff;
+    --radius:14px;
+    --shadow:0 2px 10px rgba(90,62,27,0.10);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Poppins',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+  }
+  h1,h2,h3,h4{margin:0 0 8px;}
+  button{font-family:inherit;cursor:pointer;}
+  .hidden{display:none !important;}
+
+  /* Header */
+  .topbar{
+    background:var(--white);
+    border-bottom:1px solid var(--bg-alt);
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    position:sticky;
+    top:0;
+    z-index:20;
+  }
+  .brand{display:flex;flex-direction:column;}
+  .brand-name{font-weight:700;font-size:1.15rem;color:var(--text);}
+  .brand-sub{font-size:0.75rem;color:var(--gold);}
+  .tabs{display:flex;gap:6px;overflow-x:auto;}
+  .tab-btn{
+    background:transparent;
+    border:none;
+    padding:9px 16px;
+    border-radius:999px;
+    font-weight:600;
+    font-size:0.9rem;
+    color:var(--text);
+    white-space:nowrap;
+  }
+  .tab-btn.active{background:var(--sage);color:#fff;}
+  .tab-btn:not(.active):hover{background:var(--bg-alt);}
+  .btn-primary{
+    background:var(--gold);
+    color:#fff;
+    border:none;
+    padding:10px 18px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:0.9rem;
+    box-shadow:var(--shadow);
+  }
+  .btn-primary:hover{background:#a67c43;}
+
+  main{max-width:1100px;margin:0 auto;padding:20px;}
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  /* Stats */
+  .stats-row{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin-bottom:26px;
+  }
+  .stat-card{
+    background:var(--white);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow:var(--shadow);
+    text-align:center;
+  }
+  .stat-value{font-size:1.6rem;font-weight:700;color:var(--gold);}
+  .stat-label{font-size:0.78rem;color:var(--text);opacity:0.75;margin-top:4px;}
+
+  /* Bed grid */
+  .bed-grid{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+    margin-bottom:26px;
+  }
+  .bed-cell{
+    border-radius:var(--radius);
+    padding:16px 10px;
+    text-align:center;
+    color:#fff;
+    box-shadow:var(--shadow);
+  }
+  .bed-num{font-weight:700;font-size:1rem;}
+  .bed-state{font-size:0.78rem;margin-top:4px;opacity:0.95;}
+  .bed-free{background:var(--sage);}
+  .bed-occupied{background:var(--red);}
+
+  /* Schedule list */
+  .schedule-list, .bookings-list, .reminders-list{display:flex;flex-direction:column;gap:10px;}
+  .slot-header{
+    font-size:0.78rem;
+    font-weight:700;
+    opacity:0.65;
+    margin:16px 0 2px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+  }
+  .slot-header:first-child{margin-top:0;}
+  .schedule-item{
+    background:var(--white);
+    border-radius:12px;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    gap:12px;
+    box-shadow:var(--shadow);
+    border-left:5px solid #ccc;
+    cursor:pointer;
+    flex-wrap:wrap;
+  }
+  .schedule-item:hover{filter:brightness(0.98);}
+  .sched-ongoing{border-left-color:var(--blue);}
+  .sched-upcoming{border-left-color:var(--gold);}
+  .sched-later{border-left-color:var(--sage);}
+  .sched-past{opacity:0.5;}
+  .sched-time{font-weight:700;min-width:78px;font-size:0.88rem;}
+  .sched-info{display:flex;flex-direction:column;flex:1;min-width:140px;}
+  .sched-info span{font-size:0.78rem;opacity:0.75;display:flex;align-items:center;gap:6px;}
+  .badge-pulse{
+    background:var(--gold);
+    color:#fff;
+    padding:3px 10px;
+    border-radius:12px;
+    font-size:0.72rem;
+    font-weight:600;
+    animation:pulse 1.5s infinite;
+    white-space:nowrap;
+  }
+  @keyframes pulse{0%{opacity:1;}50%{opacity:0.45;}100%{opacity:1;}}
+
+  .empty-msg{opacity:0.6;font-size:0.9rem;padding:20px 0;text-align:center;}
+
+  /* Filters */
+  .filter-row{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+  .filter-btn{
+    background:var(--white);
+    border:1px solid var(--bg-alt);
+    padding:8px 16px;
+    border-radius:999px;
+    font-size:0.85rem;
+    font-weight:600;
+    color:var(--text);
+  }
+  .filter-btn.active{background:var(--gold);color:#fff;border-color:var(--gold);}
+
+  /* Booking row */
+  .booking-row{
+    background:var(--white);
+    border-radius:12px;
+    padding:12px 14px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    box-shadow:var(--shadow);
+    flex-wrap:wrap;
+  }
+  .br-main{cursor:pointer;flex:1;min-width:180px;}
+  .br-date{font-size:0.76rem;opacity:0.7;}
+  .br-name{font-weight:600;}
+  .br-service{font-size:0.8rem;opacity:0.8;}
+  .br-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+
+  .status-badge{
+    padding:4px 10px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:600;
+    color:#fff;
+    white-space:nowrap;
+  }
+  .status-confirmed{background:var(--sage);}
+  .status-pending{background:var(--gold-light);color:var(--text);}
+  .status-ongoing{background:var(--blue);}
+  .status-completed{background:var(--done);}
+  .status-cancelled{background:var(--red);}
+
+  .action-btn{
+    border:none;
+    padding:6px 14px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:600;
+    color:#fff;
+    background:var(--gold);
+    white-space:nowrap;
+  }
+  .action-btn:hover{background:#a67c43;}
+  .action-btn.done-btn{background:var(--blue);}
+  .action-btn.done-btn:hover{background:#4a6fb0;}
+  .action-btn.edit-btn{background:var(--bg-alt);color:var(--text);}
+  .action-btn.edit-btn:hover{background:#e8dfc4;}
+
+  .pay-toggle{
+    border:none;
+    padding:5px 12px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:600;
+    color:#fff;
+  }
+  .pay-paid{background:var(--sage);}
+  .pay-unpaid{background:var(--red);}
+
+  .cancel-btn{
+    border:1px solid var(--red);
+    background:transparent;
+    color:var(--red);
+    padding:5px 12px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:600;
+  }
+  .cancel-btn:hover{background:var(--red);color:#fff;}
+
+  /* Reminder cards */
+  .reminder-card{
+    background:var(--white);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow:var(--shadow);
+    border-left:5px solid var(--gold);
+  }
+  .rc-header{display:flex;justify-content:space-between;margin-bottom:4px;font-size:0.95rem;}
+  .rc-details{font-size:0.8rem;opacity:0.8;margin-bottom:10px;}
+  .rc-msg{
+    background:var(--bg-alt);
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:0.85rem;
+    margin-bottom:10px;
+    line-height:1.4;
+  }
+  .copy-btn{
+    background:var(--sage);
+    border:none;
+    color:#fff;
+    padding:8px 16px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:0.82rem;
+  }
+  .copy-btn:hover{background:#75ac93;}
+
+  /* Modal */
+  .modal-overlay{
+    position:fixed;inset:0;
+    background:rgba(90,62,27,0.35);
+    display:flex;align-items:center;justify-content:center;
+    padding:16px;
+    z-index:100;
+  }
+  .modal{
+    background:var(--white);
+    border-radius:var(--radius);
+    padding:24px;
+    max-width:520px;
+    width:100%;
+    max-height:88vh;
+    overflow-y:auto;
+    position:relative;
+    box-shadow:0 10px 40px rgba(0,0,0,0.2);
+  }
+  .modal.modal-lg{max-width:680px;}
+  .modal-close{
+    position:absolute;top:14px;right:14px;
+    background:transparent;border:none;
+    font-size:1.4rem;line-height:1;color:var(--text);
+  }
+
+  .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0;}
+  .detail-grid label{display:block;font-size:0.7rem;text-transform:uppercase;opacity:0.6;letter-spacing:0.03em;}
+  .detail-grid span{font-size:0.92rem;font-weight:500;}
+
+  .guest-detail-card{
+    border:1px solid var(--bg-alt);
+    border-radius:10px;
+    padding:12px 14px;
+    margin-bottom:10px;
+  }
+  .guest-detail-card .gd-row{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    font-size:0.85rem;
+    padding:3px 0;
+  }
+  .guest-detail-card .gd-row span:first-child{opacity:0.6;}
+  .guest-detail-card .gd-row span:last-child{font-weight:500;text-align:right;}
+
+  .checkin-guest{
+    border:1px solid var(--bg-alt);
+    border-radius:12px;
+    padding:14px;
+    margin-bottom:14px;
+    background:var(--bg);
+  }
+  .checkin-guest.payment-block{background:var(--bg-alt);}
+  .checkin-guest-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .checkin-guest-header h4{margin:0;color:var(--gold);font-size:0.9rem;}
+  .attendance-toggle{display:flex;gap:6px;}
+  .att-btn{
+    border:1px solid var(--bg-alt);
+    background:var(--white);
+    padding:5px 12px;
+    border-radius:999px;
+    font-size:0.72rem;
+    font-weight:600;
+    color:var(--text);
+  }
+  .att-btn.active[data-attendance-value="present"]{background:var(--sage);color:#fff;border-color:var(--sage);}
+  .att-btn.active[data-attendance-value="noshow"]{background:var(--red);color:#fff;border-color:var(--red);}
+  .checkin-guest-fields.collapsed{display:none;}
+  .checkin-guest.noshow{opacity:0.65;}
+
+  /* Form */
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .form-field{display:flex;flex-direction:column;gap:5px;}
+  .form-field.full{grid-column:1/-1;}
+  .form-field label{font-size:0.8rem;font-weight:600;}
+  .form-field input, .form-field select, .form-field textarea{
+    font-family:inherit;
+    padding:9px 10px;
+    border:1px solid var(--bg-alt);
+    border-radius:8px;
+    font-size:0.9rem;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .form-field textarea{resize:vertical;min-height:60px;}
+  .hint{font-size:0.72rem;opacity:0.6;}
+  .form-actions{margin-top:18px;display:flex;justify-content:flex-end;gap:10px;}
+  .btn-secondary{
+    background:var(--bg-alt);
+    border:none;
+    padding:10px 18px;
+    border-radius:10px;
+    font-weight:600;
+    font-size:0.9rem;
+    color:var(--text);
+  }
+
+  /* Availability board */
+  .avail-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+  .avail-date{display:flex;flex-direction:column;align-items:center;gap:2px;}
+  .avail-date strong{font-size:1rem;}
+  .hint-btn{background:none;border:none;color:var(--gold);font-size:0.72rem;font-weight:600;text-decoration:underline;padding:0;}
+  .avail-board{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:10px;}
+  .avail-cell{border-radius:12px;padding:14px 8px;text-align:center;color:#fff;box-shadow:var(--shadow);}
+  .avail-time{font-weight:700;font-size:0.82rem;}
+  .avail-count{font-size:0.75rem;margin-top:4px;opacity:0.95;}
+  .avail-green{background:var(--sage);}
+  .avail-yellow{background:var(--gold-light);color:var(--text);}
+  .avail-red{background:var(--red);}
+
+  /* Toast */
+  .toast{
+    position:fixed;
+    bottom:20px;left:50%;
+    transform:translateX(-50%);
+    background:var(--text);
+    color:#fff;
+    padding:11px 20px;
+    border-radius:10px;
+    font-size:0.85rem;
+    box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    z-index:200;
+    max-width:90vw;
+    text-align:center;
+  }
+  .toast.error{background:var(--red);}
+  .toast.success{background:var(--sage);}
+
+  @media (max-width:720px){
+    .stats-row{grid-template-columns:repeat(2,1fr);}
+    .bed-grid{grid-template-columns:repeat(2,1fr);}
+    .form-grid{grid-template-columns:1fr;}
+    .detail-grid{grid-template-columns:1fr;}
+    .topbar{justify-content:center;}
+  }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-name">🌿 Ching Massage and Spa</span>
+    <span class="brand-sub">Brgy. Sangi, Toledo City, Cebu</span>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button class="tab-btn active" data-tab="dashboard">Dashboard</button>
+    <button class="tab-btn" data-tab="bookings">Bookings</button>
+    <button class="tab-btn" data-tab="reminders">Reminders</button>
+    <button class="tab-btn" data-tab="availability">Availability</button>
+  </nav>
+  <button class="btn-primary" id="addBookingBtn">+ Add Booking</button>
+</header>
+
+<main>
+  <section id="tab-dashboard" class="tab-panel active">
+    <div class="stats-row" id="statsRow"></div>
+    <h2>Bed Status</h2>
+    <p class="hint" style="margin:-4px 0 10px;">Reflects checked-in guests only</p>
+    <div class="bed-grid" id="bedGrid"></div>
+    <h2>Today's Schedule</h2>
+    <div class="schedule-list" id="scheduleList"></div>
+  </section>
+
+  <section id="tab-bookings" class="tab-panel">
+    <div class="filter-row" id="bookingsFilterRow">
+      <button class="filter-btn active" data-filter="All">All</button>
+      <button class="filter-btn" data-filter="Confirmed">Confirmed</button>
+      <button class="filter-btn" data-filter="Pending">Pending</button>
+      <button class="filter-btn" data-filter="Ongoing">Ongoing</button>
+      <button class="filter-btn" data-filter="Completed">Completed</button>
+      <button class="filter-btn" data-filter="Cancelled">Cancelled</button>
+    </div>
+    <div class="bookings-list" id="bookingsList"></div>
+  </section>
+
+  <section id="tab-reminders" class="tab-panel">
+    <h2>Reminders — Next 2 Hours</h2>
+    <div class="reminders-list" id="remindersList"></div>
+  </section>
+
+  <section id="tab-availability" class="tab-panel">
+    <h2>Time Availability</h2>
+    <p class="hint" style="margin:-4px 0 14px;">Guests booked per hour, out of 8 beds — based on scheduled bookings (not just checked-in)</p>
+    <div class="avail-nav">
+      <button class="btn-secondary" id="availPrevBtn">← Prev</button>
+      <div class="avail-date">
+        <strong id="availDateLabel"></strong>
+        <button class="hint-btn" id="availTodayBtn">Jump to Today</button>
+      </div>
+      <button class="btn-secondary" id="availNextBtn">Next →</button>
+    </div>
+    <div class="avail-board" id="availBoard"></div>
+  </section>
+</main>
+
+<!-- Detail Modal -->
+<div id="detailModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="detailModal">&times;</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- Add / Edit Booking Modal (Stage 1: Quick Booking) -->
+<div id="addModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="addModal">&times;</button>
+    <h2 id="addModalTitle">Add Booking</h2>
+    <p class="hint" id="addModalHint">Quick capture — service, bed, and payment details are filled in at check-in.</p>
+    <form id="addForm">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label>Customer Name *</label>
+          <input type="text" name="customer_name" required>
+        </div>
+        <div class="form-field">
+          <label>Contact Number *</label>
+          <input type="tel" name="contact_number" required>
+        </div>
+        <div class="form-field">
+          <label>Number of Guests *</label>
+          <input type="number" name="num_guests" min="1" max="8" value="1" required>
+        </div>
+        <div class="form-field">
+          <label>Date *</label>
+          <input type="date" name="booking_date" required>
+        </div>
+        <div class="form-field">
+          <label>Time *</label>
+          <input type="time" name="booking_time" required>
+          <span class="hint" id="hoursHint"></span>
+        </div>
+        <div class="form-field">
+          <label>Booked Via *</label>
+          <select name="booked_via" required>
+            <option>Facebook</option>
+            <option>Walk-in</option>
+            <option>Call/Text</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Status *</label>
+          <select name="booking_status" required></select>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="addModal">Cancel</button>
+        <button type="submit" class="btn-primary">Save Booking</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Check-In Modal (Stage 2) -->
+<div id="checkinModal" class="modal-overlay hidden">
+  <div class="modal modal-lg">
+    <button class="modal-close" data-close="checkinModal">&times;</button>
+    <h2>Check In</h2>
+    <p class="hint" id="checkinSubtitle"></p>
+    <form id="checkinForm">
+      <div id="checkinGuestsContainer"></div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="checkinModal">Cancel</button>
+        <button type="submit" class="btn-primary">Complete Check-In</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>
+  // ---- Supabase config ----
+  // Replace with your Supabase project values (Project Settings → API).
+  const SUPABASE_URL = 'https://tgovjfgmspkgqkirtqev.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_zCLWGHRZIdXCNEPbiAoztw_3KZgUjSj';
+  let isConfigured = false;
+  let db = null;
+  let initErrorMsg = '';
+  try {
+    isConfigured = SUPABASE_URL.startsWith('http') && !!SUPABASE_ANON_KEY && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+    if(isConfigured){
+      if(!window.supabase) throw new Error('Supabase SDK did not load (check your internet connection or ad blocker).');
+      db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    }
+  } catch(err){
+    console.error('Supabase init failed:', err);
+    initErrorMsg = err.message;
+    isConfigured = false;
+    db = null;
+  }
+
+  if(!isConfigured){
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#D9534F;color:#fff;text-align:center;padding:10px;font-size:0.85rem;font-weight:600;';
+    banner.textContent = initErrorMsg
+      ? '⚠️ Supabase failed to load: ' + initErrorMsg
+      : '⚠️ Supabase is not configured yet. Edit index.html and set SUPABASE_URL / SUPABASE_ANON_KEY (see schema.sql for setup).';
+    document.body.prepend(banner);
+  }
+
+  const REMINDER_WINDOW_MS = 2 * 60 * 60 * 1000;
+  const PRICE_PER_BOOKING = 240;
+  const SERVICES_OPTGROUPS = `
+    <optgroup label="Regular Services">
+      <option>Shiatsu Massage</option>
+      <option>Swedish Massage</option>
+      <option>Traditional Massage</option>
+      <option>Thai Massage</option>
+      <option>Combination Massage</option>
+    </optgroup>
+    <optgroup label="Other Services">
+      <option>Back Massage</option>
+      <option>Foot and Leg Massage</option>
+      <option>Head Massage</option>
+    </optgroup>
+  `;
+  const ADDON_OPTIONS = `
+    <option value="None">None</option>
+    <option>Hot Stone</option>
+    <option>Ventosa</option>
+    <option>Body Scrub</option>
+    <option>Foot Spa</option>
+    <option>Ear Candling</option>
+  `;
+  const ADD_STATUS_OPTIONS = ['Confirmed', 'Pending'];
+  const EDIT_STATUS_OPTIONS = ['Confirmed', 'Pending', 'Ongoing', 'Completed', 'Cancelled'];
+
+  let bookings = []; // each booking has nested booking_guests: [...] (Present guests only)
+  let bookingsFilter = 'All';
+  let currentCheckinBookingId = null;
+  let editingBookingId = null;
+
+  // ---- Helpers ----
+  function escapeHtml(str){
+    if(str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  function localDateStr(d = new Date()){
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function bookingDateTime(b){
+    const [h, m] = b.booking_time.split(':').map(Number);
+    const d = new Date(b.booking_date + 'T00:00:00');
+    d.setHours(h, m || 0, 0, 0);
+    return d;
+  }
+
+  function formatTime12(timeStr){
+    const [h, m] = timeStr.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    let hh = h % 12; if(hh === 0) hh = 12;
+    return `${hh}:${String(m).padStart(2,'0')} ${period}`;
+  }
+
+  function formatDateLabel(dateStr){
+    const today = localDateStr();
+    const tmrwDate = new Date(); tmrwDate.setDate(tmrwDate.getDate()+1);
+    if(dateStr === today) return 'Today';
+    if(dateStr === localDateStr(tmrwDate)) return 'Tomorrow';
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  }
+
+  function isWithinReminderWindow(b, now){
+    const start = bookingDateTime(b);
+    return start > now && (start - now) <= REMINDER_WINDOW_MS;
+  }
+
+  function getOccupiedBeds(){
+    const set = new Set();
+    bookings.forEach(b => {
+      if(b.booking_status === 'Ongoing'){
+        (b.booking_guests || []).forEach(g => set.add(g.bed_number));
+      }
+    });
+    return set;
+  }
+
+  function reminderMessage(b){
+    return `Hi ${b.customer_name}! Just a friendly reminder that your massage appointment at Ching Massage and Spa is scheduled today at ${formatTime12(b.booking_time)}. We look forward to welcoming you! See you soon! 🌿`;
+  }
+
+  function showToast(msg, type=''){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast ' + type;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => t.classList.add('hidden'), 2800);
+  }
+
+  function showModal(id){ document.getElementById(id).classList.remove('hidden'); }
+  function hideModal(id){ document.getElementById(id).classList.add('hidden'); }
+
+  // ---- Data ----
+  async function loadBookings(){
+    if(!isConfigured){ renderAll(); return; }
+    const { data, error } = await db
+      .from('bookings')
+      .select('*, booking_guests(*)')
+      .order('booking_date', { ascending: true })
+      .order('booking_time', { ascending: true })
+      .order('guest_number', { foreignTable: 'booking_guests', ascending: true });
+    if(error){
+      showToast('Failed to load bookings — check Supabase config.', 'error');
+      console.error(error);
+      return;
+    }
+    bookings = data || [];
+    renderAll();
+  }
+
+  function renderAll(){
+    renderDashboard();
+    renderBookingsList();
+    renderReminders();
+    renderAvailabilityBoard();
+  }
+
+  // ---- Availability board ----
+  let availSelectedDate = localDateStr();
+
+  function getBoardHours(dateStr){
+    const day = new Date(dateStr + 'T00:00:00').getDay(); // 0=Sun..6=Sat
+    const isFriToSun = (day === 5 || day === 6 || day === 0);
+    const startHour = isFriToSun ? 13 : 12;
+    const endHourExclusive = isFriToSun ? 23 : 22;
+    const hours = [];
+    for(let h = startHour; h < endHourExclusive; h++) hours.push(h);
+    return hours;
+  }
+
+  function renderAvailabilityBoard(){
+    const dateStr = availSelectedDate;
+    const dateObj = new Date(dateStr + 'T00:00:00');
+    const weekdayLabel = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    document.getElementById('availDateLabel').textContent = `${formatDateLabel(dateStr)} · ${weekdayLabel}`;
+
+    const dayBookings = bookings.filter(b => b.booking_date === dateStr && b.booking_status !== 'Cancelled');
+    const hours = getBoardHours(dateStr);
+    const board = document.getElementById('availBoard');
+    board.innerHTML = hours.map(h => {
+      const guestCount = dayBookings
+        .filter(b => parseInt(b.booking_time.split(':')[0], 10) === h)
+        .reduce((sum, b) => sum + b.num_guests, 0);
+      let cls = 'avail-green';
+      if(guestCount >= 8) cls = 'avail-red';
+      else if(guestCount >= 1) cls = 'avail-yellow';
+      const label = formatTime12(`${String(h).padStart(2,'0')}:00`);
+      return `<div class="avail-cell ${cls}"><div class="avail-time">${label}</div><div class="avail-count">${guestCount}/8</div></div>`;
+    }).join('');
+  }
+
+  document.getElementById('availPrevBtn').addEventListener('click', () => {
+    const d = new Date(availSelectedDate + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    availSelectedDate = localDateStr(d);
+    renderAvailabilityBoard();
+  });
+  document.getElementById('availNextBtn').addEventListener('click', () => {
+    const d = new Date(availSelectedDate + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    availSelectedDate = localDateStr(d);
+    renderAvailabilityBoard();
+  });
+  document.getElementById('availTodayBtn').addEventListener('click', () => {
+    availSelectedDate = localDateStr();
+    renderAvailabilityBoard();
+  });
+
+  // ---- Dashboard ----
+  function renderDashboard(){
+    const now = new Date();
+    const today = localDateStr();
+    const todays = bookings.filter(b => b.booking_date === today && b.booking_status !== 'Cancelled');
+
+    const occupiedBeds = getOccupiedBeds();
+    const upcoming2h = todays.filter(b => (b.booking_status === 'Confirmed' || b.booking_status === 'Pending') && isWithinReminderWindow(b, now)).length;
+    const revenue = todays
+      .filter(b => b.payment_status === 'Paid')
+      .reduce((sum, b) => sum + (b.booking_guests || []).length * PRICE_PER_BOOKING, 0);
+
+    document.getElementById('statsRow').innerHTML = `
+      <div class="stat-card"><div class="stat-value">${todays.length}</div><div class="stat-label">Bookings Today</div></div>
+      <div class="stat-card"><div class="stat-value">${occupiedBeds.size}/8</div><div class="stat-label">Beds Occupied Now</div></div>
+      <div class="stat-card"><div class="stat-value">${upcoming2h}</div><div class="stat-label">Upcoming in 2h</div></div>
+      <div class="stat-card"><div class="stat-value">₱${revenue.toLocaleString()}</div><div class="stat-label">Revenue Today</div></div>
+    `;
+
+    let bedHtml = '';
+    for(let bed = 1; bed <= 8; bed++){
+      const occupied = occupiedBeds.has(bed);
+      bedHtml += `<div class="bed-cell ${occupied ? 'bed-occupied' : 'bed-free'}"><div class="bed-num">Bed ${bed}</div><div class="bed-state">${occupied ? 'Occupied' : 'Free'}</div></div>`;
+    }
+    document.getElementById('bedGrid').innerHTML = bedHtml;
+
+    const byTime = {};
+    todays.forEach(b => { (byTime[b.booking_time] = byTime[b.booking_time] || []).push(b); });
+    const times = Object.keys(byTime).sort();
+
+    const scheduleList = document.getElementById('scheduleList');
+    if(times.length === 0){
+      scheduleList.innerHTML = '<p class="empty-msg">No bookings today.</p>';
+    } else {
+      scheduleList.innerHTML = times.map(t => {
+        const group = byTime[t];
+        const guestCount = group.reduce((sum, b) => sum + b.num_guests, 0);
+        const rows = group.map(b => scheduleRowHtml(b, now)).join('');
+        return `<div class="slot-header">${formatTime12(t)} — ${guestCount} guest${guestCount === 1 ? '' : 's'}</div>${rows}`;
+      }).join('');
+    }
+  }
+
+  function scheduleRowHtml(b, now){
+    const start = bookingDateTime(b);
+    let cls;
+    if(b.booking_status === 'Ongoing') cls = 'sched-ongoing';
+    else if(b.booking_status === 'Completed') cls = 'sched-past';
+    else if(start <= now) cls = 'sched-past';
+    else if(isWithinReminderWindow(b, now)) cls = 'sched-upcoming';
+    else cls = 'sched-later';
+
+    let badge = '';
+    if(cls === 'sched-upcoming'){
+      const mins = Math.max(0, Math.round((start - now) / 60000));
+      badge = `<span class="badge-pulse">In ${mins} min</span>`;
+    }
+
+    let actionBtns = `<button class="action-btn edit-btn" data-action="edit" data-id="${b.id}">Edit</button>`;
+    if(b.booking_status === 'Confirmed' || b.booking_status === 'Pending'){
+      actionBtns = `<button class="action-btn" data-action="checkin" data-id="${b.id}">Check In</button>` + actionBtns;
+    } else if(b.booking_status === 'Ongoing'){
+      actionBtns = `<button class="action-btn done-btn" data-action="markdone" data-id="${b.id}">Mark Done</button>` + actionBtns;
+    }
+
+    return `<div class="schedule-item ${cls}" data-id="${b.id}">
+      <div class="sched-time">${formatTime12(b.booking_time)}</div>
+      <div class="sched-info">
+        <strong>${escapeHtml(b.customer_name)}</strong>
+        <span>${b.num_guests} guest${b.num_guests === 1 ? '' : 's'} · <span class="status-badge status-${b.booking_status.toLowerCase()}" style="padding:2px 8px;">${b.booking_status}</span></span>
+      </div>
+      ${badge}
+      ${actionBtns}
+    </div>`;
+  }
+
+  // ---- Bookings tab ----
+  function renderBookingsList(){
+    let list = bookingsFilter === 'All' ? bookings : bookings.filter(b => b.booking_status === bookingsFilter);
+    list = [...list].sort((a,b) => (b.booking_date + b.booking_time).localeCompare(a.booking_date + a.booking_time));
+    const el = document.getElementById('bookingsList');
+    if(list.length === 0){
+      el.innerHTML = '<p class="empty-msg">No bookings found.</p>';
+      return;
+    }
+    el.innerHTML = list.map(b => {
+      let actionBtns = `<button class="action-btn edit-btn" data-action="edit" data-id="${b.id}">Edit</button>`;
+      if(b.booking_status === 'Confirmed' || b.booking_status === 'Pending'){
+        actionBtns = `<button class="action-btn" data-action="checkin" data-id="${b.id}">Check In</button>` + actionBtns +
+          `<button class="cancel-btn" data-action="cancel" data-id="${b.id}">Cancel</button>`;
+      } else if(b.booking_status === 'Ongoing'){
+        actionBtns = `<button class="action-btn done-btn" data-action="markdone" data-id="${b.id}">Mark Done</button>` + actionBtns;
+      }
+      return `<div class="booking-row">
+        <div class="br-main" data-id="${b.id}">
+          <div class="br-date">${formatDateLabel(b.booking_date)} · ${formatTime12(b.booking_time)}</div>
+          <div class="br-name">${escapeHtml(b.customer_name)}</div>
+          <div class="br-service">${b.num_guests} guest${b.num_guests === 1 ? '' : 's'} · via ${escapeHtml(b.booked_via)}</div>
+        </div>
+        <div class="br-actions">
+          <span class="status-badge status-${b.booking_status.toLowerCase()}">${b.booking_status}</span>
+          ${actionBtns}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  // ---- Reminders tab ----
+  function renderReminders(){
+    const now = new Date();
+    const today = localDateStr();
+    const list = bookings.filter(b => b.booking_date === today && (b.booking_status === 'Confirmed' || b.booking_status === 'Pending') && isWithinReminderWindow(b, now));
+    const el = document.getElementById('remindersList');
+    if(list.length === 0){
+      el.innerHTML = '<p class="empty-msg">No reminders due right now.</p>';
+      return;
+    }
+    const sorted = [...list].sort((a,b) => a.booking_time.localeCompare(b.booking_time));
+    el.innerHTML = sorted.map(b => {
+      const msg = reminderMessage(b);
+      return `<div class="reminder-card">
+        <div class="rc-header"><strong>${escapeHtml(b.customer_name)}</strong><span>${formatTime12(b.booking_time)}</span></div>
+        <div class="rc-details">${b.num_guests} guest${b.num_guests === 1 ? '' : 's'} · ${escapeHtml(b.contact_number)} · via ${escapeHtml(b.booked_via)}</div>
+        <div class="rc-msg">${escapeHtml(msg)}</div>
+        <button class="copy-btn" data-msg="${encodeURIComponent(msg)}">Copy Message</button>
+      </div>`;
+    }).join('');
+  }
+
+  // ---- Detail modal ----
+  function openDetail(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const msg = reminderMessage(b);
+    const guests = b.booking_guests || [];
+
+    let guestsHtml = '';
+    if(guests.length > 0){
+      guestsHtml = `<h3 style="margin-top:18px;">Guests (${guests.length} present)</h3>` + guests.map(g => `
+        <div class="guest-detail-card">
+          <div class="gd-row"><strong>${escapeHtml(g.guest_name)}</strong><span>Guest ${g.guest_number}</span></div>
+          <div class="gd-row"><span>Service</span><span>${escapeHtml(g.service)}</span></div>
+          <div class="gd-row"><span>Add-on</span><span>${escapeHtml(g.addon || 'None')}</span></div>
+          <div class="gd-row"><span>Bed</span><span>Bed ${g.bed_number}</span></div>
+          <div class="gd-row"><span>Notes</span><span>${g.notes ? escapeHtml(g.notes) : '—'}</span></div>
+        </div>
+      `).join('');
+    }
+
+    const paymentHtml = b.payment_method ? `
+      <div><label>Payment Method</label><span>${escapeHtml(b.payment_method)}</span></div>
+      <div><label>Payment Status</label><span>${b.booking_status === 'Completed'
+        ? `<span class="status-badge pay-${b.payment_status.toLowerCase()}">${b.payment_status}</span>`
+        : `<button class="pay-toggle pay-${b.payment_status.toLowerCase()}" data-action="togglepay" data-id="${b.id}">${b.payment_status}</button>`}</span></div>
+    ` : '';
+
+    let actionsHtml = `<button class="btn-secondary" data-action="edit" data-id="${b.id}">Edit</button>`;
+    if(b.booking_status === 'Confirmed' || b.booking_status === 'Pending'){
+      actionsHtml = `<button class="btn-primary" data-action="checkin" data-id="${b.id}">Check In</button>` + actionsHtml +
+        `<button class="cancel-btn" data-action="cancel" data-id="${b.id}">Cancel Booking</button>`;
+    } else if(b.booking_status === 'Ongoing'){
+      actionsHtml = `<button class="btn-primary" data-action="markdone" data-id="${b.id}">Mark as Done</button>` + actionsHtml;
+    }
+
+    document.getElementById('detailContent').innerHTML = `
+      <h2>${escapeHtml(b.customer_name)}</h2>
+      <div class="detail-grid">
+        <div><label>Contact</label><span>${escapeHtml(b.contact_number)}</span></div>
+        <div><label>Guests</label><span>${b.num_guests}</span></div>
+        <div><label>Date</label><span>${formatDateLabel(b.booking_date)}</span></div>
+        <div><label>Time</label><span>${formatTime12(b.booking_time)}</span></div>
+        <div><label>Booked Via</label><span>${escapeHtml(b.booked_via)}</span></div>
+        <div><label>Status</label><span class="status-badge status-${b.booking_status.toLowerCase()}">${b.booking_status}</span></div>
+        ${paymentHtml}
+      </div>
+      ${guestsHtml}
+      <div style="margin-top:18px;display:flex;flex-wrap:wrap;gap:8px;">
+        ${actionsHtml}
+        ${(b.booking_status === 'Confirmed' || b.booking_status === 'Pending') ? `<button class="copy-btn" data-msg="${encodeURIComponent(msg)}">Copy Reminder Message</button>` : ''}
+      </div>
+    `;
+    showModal('detailModal');
+  }
+
+  // ---- Check-In modal (Stage 2) ----
+  function openCheckIn(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    currentCheckinBookingId = id;
+    document.getElementById('checkinSubtitle').textContent = `${b.customer_name} — ${b.num_guests} guest${b.num_guests === 1 ? '' : 's'}`;
+
+    const occupied = getOccupiedBeds();
+    let html = '';
+    for(let i = 1; i <= b.num_guests; i++){
+      let bedOptions = '';
+      for(let bed = 1; bed <= 8; bed++){
+        const isOccupied = occupied.has(bed);
+        bedOptions += `<option value="${bed}" ${isOccupied ? 'disabled' : ''}>Bed ${bed}${isOccupied ? ' (Occupied)' : ''}</option>`;
+      }
+      html += `<div class="checkin-guest" data-guest-index="${i}" data-attendance="present">
+        <div class="checkin-guest-header">
+          <h4>Guest ${i}</h4>
+          <div class="attendance-toggle">
+            <button type="button" class="att-btn active" data-attendance-value="present">Present</button>
+            <button type="button" class="att-btn" data-attendance-value="noshow">No Show</button>
+          </div>
+        </div>
+        <div class="checkin-guest-fields">
+          <div class="form-grid">
+            <div class="form-field full">
+              <label>Name *</label>
+              <input type="text" name="g${i}_name" value="${i === 1 ? escapeHtml(b.customer_name) : ''}" required>
+            </div>
+            <div class="form-field">
+              <label>Service *</label>
+              <select name="g${i}_service" required>${SERVICES_OPTGROUPS}</select>
+            </div>
+            <div class="form-field">
+              <label>Add-on</label>
+              <select name="g${i}_addon">${ADDON_OPTIONS}</select>
+            </div>
+            <div class="form-field">
+              <label>Bed Number *</label>
+              <select name="g${i}_bed" required>${bedOptions}</select>
+            </div>
+            <div class="form-field full">
+              <label>Notes</label>
+              <textarea name="g${i}_notes" placeholder="Allergies, preferences, areas of concern..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+
+    html += `<div class="checkin-guest payment-block">
+      <h4>Payment (for the whole group)</h4>
+      <p class="hint" style="margin-top:-4px;margin-bottom:10px;">Only guests marked Present are counted.</p>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Payment Method *</label>
+          <select name="payment_method" required>
+            <option value="">Select...</option>
+            <option>Cash</option>
+            <option>GCash</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label>Payment Status *</label>
+          <select name="payment_status" required>
+            <option>Unpaid</option>
+            <option>Paid</option>
+          </select>
+        </div>
+      </div>
+    </div>`;
+
+    document.getElementById('checkinGuestsContainer').innerHTML = html;
+    showModal('checkinModal');
+  }
+
+  document.getElementById('checkinGuestsContainer').addEventListener('click', e => {
+    const btn = e.target.closest('.att-btn');
+    if(!btn) return;
+    const guestEl = btn.closest('.checkin-guest');
+    const value = btn.dataset.attendanceValue;
+    guestEl.dataset.attendance = value;
+    guestEl.querySelectorAll('.att-btn').forEach(b => b.classList.toggle('active', b === btn));
+    guestEl.classList.toggle('noshow', value === 'noshow');
+    guestEl.querySelector('.checkin-guest-fields').classList.toggle('collapsed', value === 'noshow');
+  });
+
+  document.getElementById('checkinForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const id = currentCheckinBookingId;
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+
+    const fd = new FormData(e.target);
+    const occupied = getOccupiedBeds();
+    const chosenBeds = new Set();
+    const guestRows = [];
+    const container = document.getElementById('checkinGuestsContainer');
+
+    for(let i = 1; i <= b.num_guests; i++){
+      const guestEl = container.querySelector(`.checkin-guest[data-guest-index="${i}"]`);
+      if(!guestEl || guestEl.dataset.attendance === 'noshow') continue;
+
+      const name = (fd.get(`g${i}_name`) || '').trim();
+      const service = fd.get(`g${i}_service`);
+      const addon = fd.get(`g${i}_addon`) || 'None';
+      const bed = parseInt(fd.get(`g${i}_bed`), 10);
+      const notes = (fd.get(`g${i}_notes`) || '').trim() || null;
+
+      if(!name || !service || !bed){
+        showToast(`Please complete all required fields for Guest ${i}.`, 'error');
+        return;
+      }
+      if(occupied.has(bed) || chosenBeds.has(bed)){
+        showToast(`Bed ${bed} is already occupied — pick a different bed for Guest ${i}.`, 'error');
+        return;
+      }
+      chosenBeds.add(bed);
+      guestRows.push({ booking_id: id, guest_number: i, guest_name: name, service, addon, bed_number: bed, notes });
+    }
+
+    if(guestRows.length === 0){
+      showToast('At least one guest must be marked Present to check in.', 'error');
+      return;
+    }
+
+    const paymentMethod = fd.get('payment_method');
+    const paymentStatus = fd.get('payment_status');
+    if(!paymentMethod || !paymentStatus){
+      showToast('Please select a payment method and status.', 'error');
+      return;
+    }
+
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+
+    const { error: insertError } = await db.from('booking_guests').insert(guestRows);
+    if(insertError){
+      submitBtn.disabled = false;
+      showToast('Failed to save guest details.', 'error');
+      console.error(insertError);
+      return;
+    }
+    const { error: updateError } = await db.from('bookings').update({
+      booking_status: 'Ongoing',
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+    }).eq('id', id);
+    submitBtn.disabled = false;
+    if(updateError){
+      showToast('Guests saved, but failed to update booking status.', 'error');
+      console.error(updateError);
+      loadBookings();
+      return;
+    }
+
+    showToast('Checked in!', 'success');
+    hideModal('checkinModal');
+    hideModal('detailModal');
+    loadBookings();
+  });
+
+  // ---- Status actions ----
+  async function markDone(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    if(!confirm(`Mark ${b.customer_name}'s booking as done? Payment will be set to Paid.`)) return;
+
+    const { error } = await db.from('bookings').update({ booking_status: 'Completed', payment_status: 'Paid' }).eq('id', id);
+    if(error){ showToast('Failed to complete booking.', 'error'); console.error(error); return; }
+
+    showToast('Booking marked as done!', 'success');
+    hideModal('detailModal');
+    loadBookings();
+  }
+
+  async function cancelBooking(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    if(!confirm(`Cancel the booking for ${b.customer_name}?`)) return;
+
+    const { error } = await db.from('bookings').update({ booking_status: 'Cancelled' }).eq('id', id);
+    if(error){ showToast('Failed to cancel booking.', 'error'); console.error(error); return; }
+
+    showToast('Booking cancelled.', 'success');
+    hideModal('detailModal');
+    loadBookings();
+  }
+
+  async function toggleBookingPay(id){
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const b = bookings.find(x => x.id === id);
+    if(!b || !b.payment_method) return;
+
+    const newStatus = b.payment_status === 'Paid' ? 'Unpaid' : 'Paid';
+    const { error } = await db.from('bookings').update({ payment_status: newStatus }).eq('id', id);
+    if(error){ showToast('Failed to update payment.', 'error'); console.error(error); return; }
+    b.payment_status = newStatus;
+    renderAll();
+    if(!document.getElementById('detailModal').classList.contains('hidden')) openDetail(id);
+  }
+
+  // ---- Tabs ----
+  document.getElementById('tabs').addEventListener('click', e => {
+    const btn = e.target.closest('.tab-btn');
+    if(!btn) return;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+
+  // ---- Bookings filter ----
+  document.getElementById('bookingsFilterRow').addEventListener('click', e => {
+    const btn = e.target.closest('.filter-btn');
+    if(!btn) return;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    bookingsFilter = btn.dataset.filter;
+    renderBookingsList();
+  });
+
+  // ---- Row clicks → open detail (skip if an action button was clicked) ----
+  document.getElementById('scheduleList').addEventListener('click', e => {
+    if(e.target.closest('[data-action]')) return;
+    const item = e.target.closest('.schedule-item');
+    if(item) openDetail(item.dataset.id);
+  });
+  document.getElementById('bookingsList').addEventListener('click', e => {
+    if(e.target.closest('[data-action]')) return;
+    const row = e.target.closest('.br-main');
+    if(row) openDetail(row.dataset.id);
+  });
+
+  // ---- Global action buttons (check-in / mark done / cancel / edit / toggle payment) ----
+  document.addEventListener('click', e => {
+    const actionBtn = e.target.closest('[data-action]');
+    if(!actionBtn) return;
+    const action = actionBtn.dataset.action;
+    const id = actionBtn.dataset.id;
+    if(action === 'checkin'){ openCheckIn(id); return; }
+    if(action === 'markdone'){ markDone(id); return; }
+    if(action === 'cancel'){ cancelBooking(id); return; }
+    if(action === 'edit'){ openEditForm(id); return; }
+    if(action === 'togglepay'){ toggleBookingPay(id); return; }
+  });
+
+  // ---- Modal close (overlay click, X button, cancel button) ----
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => {
+      if(e.target === overlay) overlay.classList.add('hidden');
+    });
+  });
+  document.addEventListener('click', e => {
+    const closeBtn = e.target.closest('[data-close]');
+    if(closeBtn) hideModal(closeBtn.dataset.close);
+  });
+  document.addEventListener('keydown', e => {
+    if(e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(o => o.classList.add('hidden'));
+  });
+
+  // ---- Copy buttons (delegated globally: modal + reminders tab) ----
+  document.addEventListener('click', e => {
+    const copyBtn = e.target.closest('.copy-btn');
+    if(!copyBtn) return;
+    const msg = decodeURIComponent(copyBtn.dataset.msg);
+    navigator.clipboard.writeText(msg)
+      .then(() => showToast('Copied to clipboard!', 'success'))
+      .catch(() => showToast('Could not copy — please copy manually.', 'error'));
+  });
+
+  // ---- Add / Edit Booking (Stage 1) ----
+  const addForm = document.getElementById('addForm');
+  const dateInput = addForm.querySelector('[name="booking_date"]');
+  const hoursHint = document.getElementById('hoursHint');
+  const statusSelect = addForm.querySelector('[name="booking_status"]');
+
+  function updateHoursHint(){
+    const val = dateInput.value;
+    if(!val){ hoursHint.textContent = ''; return; }
+    const day = new Date(val + 'T00:00:00').getDay(); // 0=Sun..6=Sat
+    const isFriToSun = (day === 5 || day === 6 || day === 0);
+    hoursHint.textContent = isFriToSun ? 'Hours: 1PM–11PM' : 'Hours: 12PM–10PM';
+  }
+  dateInput.addEventListener('change', updateHoursHint);
+
+  function setStatusOptions(options, selected){
+    statusSelect.innerHTML = options.map(o => `<option${o === selected ? ' selected' : ''}>${o}</option>`).join('');
+  }
+
+  function openAddForm(){
+    editingBookingId = null;
+    addForm.reset();
+    dateInput.value = localDateStr();
+    updateHoursHint();
+    setStatusOptions(ADD_STATUS_OPTIONS, 'Confirmed');
+    document.getElementById('addModalTitle').textContent = 'Add Booking';
+    document.getElementById('addModalHint').textContent = 'Quick capture — service, bed, and payment details are filled in at check-in.';
+    addForm.querySelector('button[type="submit"]').textContent = 'Save Booking';
+    showModal('addModal');
+  }
+
+  function openEditForm(id){
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    editingBookingId = id;
+    addForm.customer_name.value = b.customer_name;
+    addForm.contact_number.value = b.contact_number;
+    addForm.num_guests.value = b.num_guests;
+    addForm.booking_date.value = b.booking_date;
+    addForm.booking_time.value = b.booking_time.slice(0,5);
+    addForm.booked_via.value = b.booked_via;
+    setStatusOptions(EDIT_STATUS_OPTIONS, b.booking_status);
+    updateHoursHint();
+    document.getElementById('addModalTitle').textContent = 'Edit Booking';
+    document.getElementById('addModalHint').textContent = `Editing ${b.customer_name}'s booking.`;
+    addForm.querySelector('button[type="submit"]').textContent = 'Save Changes';
+    showModal('addModal');
+  }
+
+  document.getElementById('addBookingBtn').addEventListener('click', openAddForm);
+
+  addForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet — edit index.html.', 'error'); return; }
+    const fd = new FormData(addForm);
+    const payload = {
+      customer_name: (fd.get('customer_name') || '').trim(),
+      contact_number: (fd.get('contact_number') || '').trim(),
+      booking_date: fd.get('booking_date'),
+      booking_time: fd.get('booking_time'),
+      num_guests: parseInt(fd.get('num_guests'), 10),
+      booked_via: fd.get('booked_via'),
+      booking_status: fd.get('booking_status'),
+    };
+
+    const requiredFields = ['customer_name','contact_number','booking_date','booking_time','booked_via','booking_status'];
+    for(const key of requiredFields){
+      if(!payload[key]){ showToast('Please fill in all required fields.', 'error'); return; }
+    }
+    if(!payload.num_guests || payload.num_guests < 1 || payload.num_guests > 8){
+      showToast('Number of guests must be between 1 and 8.', 'error'); return;
+    }
+
+    const submitBtn = addForm.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const { error } = editingBookingId
+      ? await db.from('bookings').update(payload).eq('id', editingBookingId)
+      : await db.from('bookings').insert([payload]);
+    submitBtn.disabled = false;
+    if(error){ showToast('Failed to save booking.', 'error'); console.error(error); return; }
+
+    showToast(editingBookingId ? 'Booking updated!' : 'Booking saved!', 'success');
+    addForm.reset();
+    editingBookingId = null;
+    hideModal('addModal');
+    hideModal('detailModal');
+    loadBookings();
+  });
+
+  // ---- Realtime + polling refresh ----
+  function subscribeRealtime(){
+    if(!isConfigured) return;
+    db.channel('bookings-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadBookings())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_guests' }, () => loadBookings())
+      .subscribe();
+  }
+
+  // Re-render every 30s so time-based states (upcoming badges, overdue fading) stay current.
+  setInterval(renderAll, 30000);
+
+  loadBookings();
+  subscribeRealtime();
+</script>
+</body>
+</html>
