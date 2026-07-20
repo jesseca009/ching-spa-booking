@@ -687,17 +687,24 @@
   </div>
 </div>
 
-<!-- Inventory: Edit Starting Stock Modal -->
+<!-- Inventory: Edit Stock Modal -->
 <div id="invEditStockModal" class="modal-overlay hidden">
   <div class="modal">
     <button class="modal-close" data-close="invEditStockModal">&times;</button>
-    <h2>Edit Starting Stock</h2>
+    <h2>Edit Stock</h2>
     <p class="hint" id="invEditStockSubtitle"></p>
     <form id="invEditStockForm">
-      <div class="form-field full">
-        <label>Starting Stock *</label>
-        <input type="number" name="starting_stock" min="0" step="any" required>
+      <div class="form-grid">
+        <div class="form-field">
+          <label>Starting Stock *</label>
+          <input type="number" name="starting_stock" min="0" step="any" required>
+        </div>
+        <div class="form-field">
+          <label>Restock Added *</label>
+          <input type="number" name="restock_added" min="0" step="any" required>
+        </div>
       </div>
+      <p class="hint">Both values are set directly here — use the Restock button instead if you just want to add a new delivery on top of the current total.</p>
       <div class="form-actions">
         <button type="button" class="btn-secondary" data-close="invEditStockModal">Cancel</button>
         <button type="submit" class="btn-primary">Save</button>
@@ -1678,13 +1685,18 @@
     invEditStockItemId = id;
     document.getElementById('invEditStockSubtitle').textContent = item.item_name;
     document.getElementById('invEditStockForm').starting_stock.value = item.starting_stock;
+    document.getElementById('invEditStockForm').restock_added.value = item.restock_added;
     showModal('invEditStockModal');
   }
   document.getElementById('invEditStockForm').addEventListener('submit', async e => {
     e.preventDefault();
     if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
-    const val = parseFloat(e.target.starting_stock.value);
-    const { error } = await db.from('inventory_items').update({ starting_stock: isNaN(val) ? 0 : val }).eq('id', invEditStockItemId);
+    const startVal = parseFloat(e.target.starting_stock.value);
+    const restockVal = parseFloat(e.target.restock_added.value);
+    const { error } = await db.from('inventory_items').update({
+      starting_stock: isNaN(startVal) ? 0 : startVal,
+      restock_added: isNaN(restockVal) ? 0 : restockVal,
+    }).eq('id', invEditStockItemId);
     if(error){ showToast('Failed to update stock.', 'error'); console.error(error); return; }
     showToast('Starting stock updated!', 'success');
     hideModal('invEditStockModal');
