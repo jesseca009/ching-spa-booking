@@ -403,6 +403,24 @@
   .toast.error{background:var(--red);}
   .toast.success{background:var(--sage);}
 
+  /* Login screen */
+  .login-screen{
+    position:fixed;inset:0;
+    background:var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+    z-index:500;
+  }
+  .login-card{
+    background:var(--white);
+    border-radius:var(--radius);
+    padding:32px 28px;
+    max-width:360px;
+    width:100%;
+    box-shadow:var(--shadow);
+  }
+  .error-text{color:var(--red);font-weight:600;margin-top:10px;}
+
   @media (max-width:720px){
     .stats-row{grid-template-columns:repeat(2,1fr);}
     .bed-grid{grid-template-columns:repeat(2,1fr);}
@@ -414,6 +432,29 @@
 </head>
 <body>
 
+<!-- Login Screen -->
+<div id="loginScreen" class="login-screen hidden">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:18px;">
+      <span class="brand-name" style="display:block;font-size:1.3rem;">🌿 Ching Massage and Spa</span>
+      <span class="brand-sub" style="display:block;margin-top:4px;">Staff Login</span>
+    </div>
+    <form id="loginForm">
+      <div class="form-field full">
+        <label>Email</label>
+        <input type="email" id="loginEmail" required autocomplete="username">
+      </div>
+      <div class="form-field full" style="margin-top:12px;">
+        <label>Password</label>
+        <input type="password" id="loginPassword" required autocomplete="current-password">
+      </div>
+      <p class="hint error-text hidden" id="loginError"></p>
+      <button type="submit" class="btn-primary" style="width:100%;margin-top:16px;">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<div id="appContent" class="hidden">
 <header class="topbar">
   <div class="brand">
     <span class="brand-name">🌿 Ching Massage and Spa</span>
@@ -425,7 +466,10 @@
     <button class="tab-btn" data-tab="reminders">Reminders</button>
     <button class="tab-btn" data-tab="availability">Availability</button>
   </nav>
-  <button class="btn-primary" id="addBookingBtn">+ Add Booking</button>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button class="btn-primary" id="addBookingBtn">+ Add Booking</button>
+    <button class="btn-secondary" id="signOutBtn">Sign Out</button>
+  </div>
 </header>
 
 <main>
@@ -469,6 +513,7 @@
     <div class="avail-board" id="availBoard"></div>
   </section>
 </main>
+</div>
 
 <!-- Detail Modal -->
 <div id="detailModal" class="modal-overlay hidden">
@@ -1295,8 +1340,10 @@
   });
 
   // ---- Realtime + polling refresh ----
+  let realtimeSubscribed = false;
   function subscribeRealtime(){
-    if(!isConfigured) return;
+    if(!isConfigured || realtimeSubscribed) return;
+    realtimeSubscribed = true;
     db.channel('bookings-changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadBookings())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'booking_guests' }, () => loadBookings())
@@ -1306,8 +1353,54 @@
   // Re-render every 30s so time-based states (upcoming badges, overdue fading) stay current.
   setInterval(renderAll, 30000);
 
-  loadBookings();
-  subscribeRealtime();
+  // ---- Auth gate ----
+  function showApp(){
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appContent').classList.remove('hidden');
+    loadBookings();
+    subscribeRealtime();
+  }
+  function showLogin(){
+    document.getElementById('appContent').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+  }
+
+  document.getElementById('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const errEl = document.getElementById('loginError');
+    errEl.classList.add('hidden');
+    if(!isConfigured){
+      errEl.textContent = 'Supabase is not configured yet.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    submitBtn.disabled = false;
+    if(error){
+      errEl.textContent = 'Incorrect email or password.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+  });
+
+  document.getElementById('signOutBtn').addEventListener('click', async () => {
+    if(isConfigured) await db.auth.signOut();
+    showLogin();
+  });
+
+  if(isConfigured){
+    db.auth.onAuthStateChange((_event, session) => {
+      if(session) showApp(); else showLogin();
+    });
+  } else {
+    // No Supabase config — fall back to showing the app directly so the
+    // existing "not configured" banner/guards are visible for local debugging.
+    showApp();
+  }
 </script>
 </body>
 </html>
