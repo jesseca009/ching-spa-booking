@@ -596,11 +596,12 @@
     </div>
 
     <div id="invPanel-equipment" class="inv-subpanel">
+      <p class="hint" style="margin:-4px 0 14px;">Permanent record of equipment on hand — only changes when something's added or lost</p>
       <div class="inv-toolbar"><button class="btn-primary" id="invAddEquipmentBtn">+ Add Equipment</button></div>
       <div class="table-scroll">
         <table class="inv-table">
           <thead>
-            <tr><th>Item</th><th>Quantity</th><th>Condition</th><th>Notes</th><th></th></tr>
+            <tr><th>Item</th><th>Quantity</th><th></th></tr>
           </thead>
           <tbody id="invEquipmentBody"></tbody>
         </table>
@@ -775,22 +776,33 @@
           <label>Item Name *</label>
           <input type="text" name="item_name" required>
         </div>
-        <div class="form-field">
+        <div class="form-field full">
           <label>Quantity *</label>
           <input type="number" name="starting_stock" min="0" step="any" value="0" required>
-        </div>
-        <div class="form-field">
-          <label>Condition</label>
-          <input type="text" name="condition" placeholder="e.g. Good, Needs Repair">
-        </div>
-        <div class="form-field full">
-          <label>Notes</label>
-          <textarea name="notes"></textarea>
         </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn-secondary" data-close="invAddEquipmentModal">Cancel</button>
         <button type="submit" class="btn-primary">Add Equipment</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory: Edit Equipment Quantity Modal -->
+<div id="invEditEquipmentModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="invEditEquipmentModal">&times;</button>
+    <h2>Edit Quantity</h2>
+    <p class="hint" id="invEditEquipmentSubtitle"></p>
+    <form id="invEditEquipmentForm">
+      <div class="form-field full">
+        <label>Quantity *</label>
+        <input type="number" name="starting_stock" min="0" step="any" required>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="invEditEquipmentModal">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
       </div>
     </form>
   </div>
@@ -1433,7 +1445,7 @@
     if(action === 'togglepay'){ toggleBookingPay(id); return; }
     if(action === 'invEditStock'){ openInvEditStock(id); return; }
     if(action === 'invRestock'){ openInvRestock(id); return; }
-    if(action === 'invSaveEquipment'){ saveEquipmentRow(id); return; }
+    if(action === 'invEditEquipment'){ openInvEditEquipment(id); return; }
   });
 
   // ---- Modal close (overlay click, X button, cancel button) ----
@@ -1748,36 +1760,37 @@
     const items = inventoryItems.filter(i => i.category === 'Equipment');
     const tbody = document.getElementById('invEquipmentBody');
     if(items.length === 0){
-      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">No equipment items yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="3" class="empty-msg">No equipment items yet.</td></tr>';
       return;
     }
     tbody.innerHTML = items.map(item => `
       <tr data-id="${item.id}">
         <td>${escapeHtml(item.item_name)}</td>
-        <td><input type="number" class="eq-qty-input" min="0" step="any" value="${item.starting_stock}"></td>
-        <td><input type="text" class="eq-condition-input" value="${escapeHtml(item.condition || '')}"></td>
-        <td><input type="text" class="eq-notes-input" value="${escapeHtml(item.notes || '')}"></td>
-        <td><button class="action-btn" data-action="invSaveEquipment" data-id="${item.id}">Save</button></td>
+        <td>${formatQty(item.starting_stock)}</td>
+        <td><button class="action-btn edit-btn" data-action="invEditEquipment" data-id="${item.id}">Edit Quantity</button></td>
       </tr>
     `).join('');
   }
 
-  async function saveEquipmentRow(id){
-    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
-    const row = document.querySelector(`#invEquipmentBody tr[data-id="${id}"]`);
-    if(!row) return;
-    const qty = parseFloat(row.querySelector('.eq-qty-input').value);
-    const condition = row.querySelector('.eq-condition-input').value.trim() || null;
-    const notes = row.querySelector('.eq-notes-input').value.trim() || null;
-    const { error } = await db.from('inventory_items').update({
-      starting_stock: isNaN(qty) ? 0 : qty,
-      condition,
-      notes,
-    }).eq('id', id);
-    if(error){ showToast('Failed to save equipment.', 'error'); console.error(error); return; }
-    showToast('Equipment updated!', 'success');
-    loadInventoryData();
+  let invEditEquipmentItemId = null;
+  function openInvEditEquipment(id){
+    const item = inventoryItems.find(i => i.id === id);
+    if(!item) return;
+    invEditEquipmentItemId = id;
+    document.getElementById('invEditEquipmentSubtitle').textContent = item.item_name;
+    document.getElementById('invEditEquipmentForm').starting_stock.value = item.starting_stock;
+    showModal('invEditEquipmentModal');
   }
+  document.getElementById('invEditEquipmentForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const val = parseFloat(e.target.starting_stock.value);
+    const { error } = await db.from('inventory_items').update({ starting_stock: isNaN(val) ? 0 : val }).eq('id', invEditEquipmentItemId);
+    if(error){ showToast('Failed to update quantity.', 'error'); console.error(error); return; }
+    showToast('Quantity updated!', 'success');
+    hideModal('invEditEquipmentModal');
+    loadInventoryData();
+  });
 
   document.getElementById('invAddEquipmentBtn').addEventListener('click', () => {
     document.getElementById('invAddEquipmentForm').reset();
@@ -1792,8 +1805,6 @@
       unit: 'pcs',
       category: 'Equipment',
       starting_stock: parseFloat(fd.get('starting_stock')) || 0,
-      condition: (fd.get('condition') || '').trim() || null,
-      notes: (fd.get('notes') || '').trim() || null,
     };
     if(!payload.item_name){ showToast('Please enter an item name.', 'error'); return; }
     const { error } = await db.from('inventory_items').insert([payload]);
