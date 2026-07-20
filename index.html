@@ -1446,6 +1446,7 @@
     if(action === 'invEditStock'){ openInvEditStock(id); return; }
     if(action === 'invRestock'){ openInvRestock(id); return; }
     if(action === 'invEditEquipment'){ openInvEditEquipment(id); return; }
+    if(action === 'invDelete'){ deleteInventoryItem(id); return; }
   });
 
   // ---- Modal close (overlay click, X button, cancel button) ----
@@ -1573,6 +1574,22 @@
     return Number.isInteger(num) ? String(num) : num.toFixed(2);
   }
 
+  async function deleteInventoryItem(id){
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const item = inventoryItems.find(i => i.id === id);
+    if(!item) return;
+    const hasHistory = dailyUsageLog.some(l => l.item_id === id);
+    const warning = hasHistory
+      ? `Delete "${item.item_name}"? This will also permanently delete its logged usage history.`
+      : `Delete "${item.item_name}"? This cannot be undone.`;
+    if(!confirm(warning)) return;
+
+    const { error } = await db.from('inventory_items').delete().eq('id', id);
+    if(error){ showToast('Failed to delete item.', 'error'); console.error(error); return; }
+    showToast('Item deleted.', 'success');
+    loadInventoryData();
+  }
+
   async function loadInventoryData(){
     if(!isConfigured){ renderInventoryAll(); return; }
     const [itemsRes, logRes] = await Promise.all([
@@ -1680,6 +1697,7 @@
         <td class="inv-actions">
           <button class="action-btn edit-btn" data-action="invEditStock" data-id="${item.id}">Edit</button>
           <button class="action-btn" data-action="invRestock" data-id="${item.id}">Restock</button>
+          <button class="cancel-btn" data-action="invDelete" data-id="${item.id}">Delete</button>
         </td>
       </tr>`;
     }).join('');
@@ -1767,7 +1785,10 @@
       <tr data-id="${item.id}">
         <td>${escapeHtml(item.item_name)}</td>
         <td>${formatQty(item.starting_stock)}</td>
-        <td><button class="action-btn edit-btn" data-action="invEditEquipment" data-id="${item.id}">Edit Quantity</button></td>
+        <td class="inv-actions">
+          <button class="action-btn edit-btn" data-action="invEditEquipment" data-id="${item.id}">Edit Quantity</button>
+          <button class="cancel-btn" data-action="invDelete" data-id="${item.id}">Delete</button>
+        </td>
       </tr>
     `).join('');
   }
