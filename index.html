@@ -576,10 +576,7 @@
         <input type="date" id="dlDateInput">
         <button class="btn-secondary" id="dlNextBtn">Next →</button>
       </div>
-      <div class="form-field full" style="max-width:320px;margin-bottom:16px;">
-        <label>Logged By</label>
-        <input type="text" id="dlLoggedBy" placeholder="Staff name">
-      </div>
+      <h3 style="margin-top:16px;">Today's Inventory Usage</h3>
       <div class="daily-log-list" id="dlItemsContainer"></div>
       <div class="form-actions">
         <button class="btn-primary" id="dlSaveBtn">Save Log</button>
@@ -1588,8 +1585,6 @@
     document.getElementById('dlDateInput').value = dlSelectedDate;
     const items = inventoryItems.filter(i => i.category === 'Consumable');
     const entriesForDate = dailyUsageLog.filter(l => l.date === dlSelectedDate);
-    const loggedByEntry = entriesForDate.find(e => e.logged_by);
-    document.getElementById('dlLoggedBy').value = loggedByEntry ? loggedByEntry.logged_by : '';
 
     const container = document.getElementById('dlItemsContainer');
     if(items.length === 0){
@@ -1625,7 +1620,6 @@
 
   document.getElementById('dlSaveBtn').addEventListener('click', async () => {
     if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
-    const loggedBy = document.getElementById('dlLoggedBy').value.trim() || null;
     const inputs = document.querySelectorAll('.dl-qty-input');
     if(inputs.length === 0) return;
     const rows = Array.from(inputs).map(inp => {
@@ -1637,7 +1631,7 @@
         item_id: itemId,
         item_name: item ? item.item_name : '',
         qty_used: isNaN(qty) ? 0 : qty,
-        logged_by: loggedBy,
+        logged_by: null,
       };
     });
     const { error } = await db.from('daily_usage_log').upsert(rows, { onConflict: 'date,item_id' });
