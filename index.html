@@ -403,6 +403,54 @@
   .toast.error{background:var(--red);}
   .toast.success{background:var(--sage);}
 
+  /* Inventory */
+  .inv-subpanel{display:none;}
+  .inv-subpanel.active{display:block;}
+  .inv-toolbar{display:flex;justify-content:flex-end;margin-bottom:14px;}
+  .table-scroll{overflow-x:auto;}
+  .inv-table{width:100%;border-collapse:collapse;background:var(--white);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+  .inv-table th, .inv-table td{padding:10px 12px;text-align:left;font-size:0.85rem;border-bottom:1px solid var(--bg-alt);white-space:nowrap;}
+  .inv-table th{background:var(--bg-alt);font-weight:700;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.03em;}
+  .inv-table tr:last-child td{border-bottom:none;}
+  .inv-table input, .inv-table textarea{
+    font-family:inherit;
+    padding:6px 8px;
+    border:1px solid var(--bg-alt);
+    border-radius:6px;
+    font-size:0.85rem;
+    background:var(--bg);
+    color:var(--text);
+    min-width:80px;
+  }
+  .inv-actions{display:flex;gap:6px;}
+  .inv-status{padding:4px 10px;border-radius:999px;font-size:0.72rem;font-weight:600;white-space:nowrap;display:inline-block;}
+  .inv-good{background:var(--sage);color:#fff;}
+  .inv-low{background:var(--gold-light);color:var(--text);}
+  .inv-critical{background:var(--red);color:#fff;}
+  .inv-out{background:var(--red);color:#fff;}
+  .daily-log-list{display:flex;flex-direction:column;gap:8px;margin:16px 0;}
+  .daily-log-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    background:var(--white);
+    padding:10px 14px;
+    border-radius:10px;
+    box-shadow:var(--shadow);
+  }
+  .daily-log-row input{
+    width:100px;
+    padding:8px 10px;
+    border:1px solid var(--bg-alt);
+    border-radius:8px;
+    font-family:inherit;
+    font-size:0.9rem;
+    background:var(--bg);
+    color:var(--text);
+    text-align:right;
+  }
+
   /* Login screen */
   .login-screen{
     position:fixed;inset:0;
@@ -465,6 +513,7 @@
     <button class="tab-btn" data-tab="bookings">Bookings</button>
     <button class="tab-btn" data-tab="reminders">Reminders</button>
     <button class="tab-btn" data-tab="availability">Availability</button>
+    <button class="tab-btn" data-tab="inventory">Inventory</button>
   </nav>
   <div style="display:flex;gap:8px;align-items:center;">
     <button class="btn-primary" id="addBookingBtn">+ Add Booking</button>
@@ -511,6 +560,55 @@
       <button class="btn-secondary" id="availNextBtn">Next →</button>
     </div>
     <div class="avail-board" id="availBoard"></div>
+  </section>
+
+  <section id="tab-inventory" class="tab-panel">
+    <h2>Inventory</h2>
+    <div class="filter-row" id="invSubTabs">
+      <button class="filter-btn active" data-invtab="dailylog">Daily Log</button>
+      <button class="filter-btn" data-invtab="summary">Summary</button>
+      <button class="filter-btn" data-invtab="equipment">Equipment</button>
+    </div>
+
+    <div id="invPanel-dailylog" class="inv-subpanel active">
+      <div class="avail-nav">
+        <button class="btn-secondary" id="dlPrevBtn">← Prev</button>
+        <input type="date" id="dlDateInput">
+        <button class="btn-secondary" id="dlNextBtn">Next →</button>
+      </div>
+      <div class="form-field full" style="max-width:320px;margin-bottom:16px;">
+        <label>Logged By</label>
+        <input type="text" id="dlLoggedBy" placeholder="Staff name">
+      </div>
+      <div class="daily-log-list" id="dlItemsContainer"></div>
+      <div class="form-actions">
+        <button class="btn-primary" id="dlSaveBtn">Save Log</button>
+      </div>
+    </div>
+
+    <div id="invPanel-summary" class="inv-subpanel">
+      <div class="inv-toolbar"><button class="btn-primary" id="invAddItemBtn">+ Add Item</button></div>
+      <div class="table-scroll">
+        <table class="inv-table">
+          <thead>
+            <tr><th>Item</th><th>Unit</th><th>Starting Stock</th><th>Total Used</th><th>Restock Added</th><th>Remaining</th><th>Status</th><th></th></tr>
+          </thead>
+          <tbody id="invSummaryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="invPanel-equipment" class="inv-subpanel">
+      <div class="inv-toolbar"><button class="btn-primary" id="invAddEquipmentBtn">+ Add Equipment</button></div>
+      <div class="table-scroll">
+        <table class="inv-table">
+          <thead>
+            <tr><th>Item</th><th>Quantity</th><th>Condition</th><th>Notes</th><th></th></tr>
+          </thead>
+          <tbody id="invEquipmentBody"></tbody>
+        </table>
+      </div>
+    </div>
   </section>
 </main>
 </div>
@@ -584,6 +682,111 @@
       <div class="form-actions">
         <button type="button" class="btn-secondary" data-close="checkinModal">Cancel</button>
         <button type="submit" class="btn-primary">Complete Check-In</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory: Edit Starting Stock Modal -->
+<div id="invEditStockModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="invEditStockModal">&times;</button>
+    <h2>Edit Starting Stock</h2>
+    <p class="hint" id="invEditStockSubtitle"></p>
+    <form id="invEditStockForm">
+      <div class="form-field full">
+        <label>Starting Stock *</label>
+        <input type="number" name="starting_stock" min="0" step="any" required>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="invEditStockModal">Cancel</button>
+        <button type="submit" class="btn-primary">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory: Restock Modal -->
+<div id="invRestockModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="invRestockModal">&times;</button>
+    <h2>Restock Item</h2>
+    <p class="hint" id="invRestockSubtitle"></p>
+    <form id="invRestockForm">
+      <div class="form-field full">
+        <label>Quantity to Add *</label>
+        <input type="number" name="restock_qty" min="0" step="any" required>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="invRestockModal">Cancel</button>
+        <button type="submit" class="btn-primary">Add Stock</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory: Add Item Modal -->
+<div id="invAddItemModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="invAddItemModal">&times;</button>
+    <h2>Add Item</h2>
+    <form id="invAddItemForm">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label>Item Name *</label>
+          <input type="text" name="item_name" required>
+        </div>
+        <div class="form-field">
+          <label>Unit *</label>
+          <input type="text" name="unit" placeholder="e.g. pcs, bottles" required>
+        </div>
+        <div class="form-field">
+          <label>Category *</label>
+          <select name="category" required>
+            <option value="Consumable">Consumable</option>
+            <option value="Equipment">Equipment</option>
+          </select>
+        </div>
+        <div class="form-field full">
+          <label>Starting Stock *</label>
+          <input type="number" name="starting_stock" min="0" step="any" value="0" required>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="invAddItemModal">Cancel</button>
+        <button type="submit" class="btn-primary">Add Item</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Inventory: Add Equipment Modal -->
+<div id="invAddEquipmentModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button class="modal-close" data-close="invAddEquipmentModal">&times;</button>
+    <h2>Add Equipment</h2>
+    <form id="invAddEquipmentForm">
+      <div class="form-grid">
+        <div class="form-field full">
+          <label>Item Name *</label>
+          <input type="text" name="item_name" required>
+        </div>
+        <div class="form-field">
+          <label>Quantity *</label>
+          <input type="number" name="starting_stock" min="0" step="any" value="0" required>
+        </div>
+        <div class="form-field">
+          <label>Condition</label>
+          <input type="text" name="condition" placeholder="e.g. Good, Needs Repair">
+        </div>
+        <div class="form-field full">
+          <label>Notes</label>
+          <textarea name="notes"></textarea>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-secondary" data-close="invAddEquipmentModal">Cancel</button>
+        <button type="submit" class="btn-primary">Add Equipment</button>
       </div>
     </form>
   </div>
@@ -1224,6 +1427,9 @@
     if(action === 'cancel'){ cancelBooking(id); return; }
     if(action === 'edit'){ openEditForm(id); return; }
     if(action === 'togglepay'){ toggleBookingPay(id); return; }
+    if(action === 'invEditStock'){ openInvEditStock(id); return; }
+    if(action === 'invRestock'){ openInvRestock(id); return; }
+    if(action === 'invSaveEquipment'){ saveEquipmentRow(id); return; }
   });
 
   // ---- Modal close (overlay click, X button, cancel button) ----
@@ -1339,6 +1545,279 @@
     loadBookings();
   });
 
+  // ---- Inventory ----
+  let inventoryItems = [];
+  let dailyUsageLog = [];
+  let dlSelectedDate = localDateStr();
+  let invEditStockItemId = null;
+  let invRestockItemId = null;
+
+  function formatQty(n){
+    const num = Number(n || 0);
+    return Number.isInteger(num) ? String(num) : num.toFixed(2);
+  }
+
+  async function loadInventoryData(){
+    if(!isConfigured){ renderInventoryAll(); return; }
+    const [itemsRes, logRes] = await Promise.all([
+      db.from('inventory_items').select('*').order('category').order('item_name'),
+      db.from('daily_usage_log').select('*'),
+    ]);
+    if(itemsRes.error){ showToast('Failed to load inventory items.', 'error'); console.error(itemsRes.error); return; }
+    if(logRes.error){ showToast('Failed to load usage log.', 'error'); console.error(logRes.error); return; }
+    inventoryItems = itemsRes.data || [];
+    dailyUsageLog = logRes.data || [];
+    renderInventoryAll();
+  }
+
+  function renderInventoryAll(){
+    renderDailyLog();
+    renderInventorySummary();
+    renderInventoryEquipment();
+  }
+
+  // ---- Daily Log sub-tab ----
+  function renderDailyLog(){
+    document.getElementById('dlDateInput').value = dlSelectedDate;
+    const items = inventoryItems.filter(i => i.category === 'Consumable');
+    const entriesForDate = dailyUsageLog.filter(l => l.date === dlSelectedDate);
+    const loggedByEntry = entriesForDate.find(e => e.logged_by);
+    document.getElementById('dlLoggedBy').value = loggedByEntry ? loggedByEntry.logged_by : '';
+
+    const container = document.getElementById('dlItemsContainer');
+    if(items.length === 0){
+      container.innerHTML = '<p class="empty-msg">No consumable items yet — add some in the Summary tab.</p>';
+      return;
+    }
+    container.innerHTML = items.map(item => {
+      const entry = entriesForDate.find(e => e.item_id === item.id);
+      const qty = entry ? entry.qty_used : '';
+      return `<div class="daily-log-row">
+        <span class="dl-item-name">${escapeHtml(item.item_name)} <span class="hint">(${escapeHtml(item.unit)})</span></span>
+        <input type="number" class="dl-qty-input" min="0" step="any" data-item-id="${item.id}" value="${qty}" placeholder="0">
+      </div>`;
+    }).join('');
+  }
+
+  document.getElementById('dlDateInput').addEventListener('change', e => {
+    dlSelectedDate = e.target.value || localDateStr();
+    renderDailyLog();
+  });
+  document.getElementById('dlPrevBtn').addEventListener('click', () => {
+    const d = new Date(dlSelectedDate + 'T00:00:00');
+    d.setDate(d.getDate() - 1);
+    dlSelectedDate = localDateStr(d);
+    renderDailyLog();
+  });
+  document.getElementById('dlNextBtn').addEventListener('click', () => {
+    const d = new Date(dlSelectedDate + 'T00:00:00');
+    d.setDate(d.getDate() + 1);
+    dlSelectedDate = localDateStr(d);
+    renderDailyLog();
+  });
+
+  document.getElementById('dlSaveBtn').addEventListener('click', async () => {
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const loggedBy = document.getElementById('dlLoggedBy').value.trim() || null;
+    const inputs = document.querySelectorAll('.dl-qty-input');
+    if(inputs.length === 0) return;
+    const rows = Array.from(inputs).map(inp => {
+      const itemId = inp.dataset.itemId;
+      const item = inventoryItems.find(i => i.id === itemId);
+      const qty = parseFloat(inp.value);
+      return {
+        date: dlSelectedDate,
+        item_id: itemId,
+        item_name: item ? item.item_name : '',
+        qty_used: isNaN(qty) ? 0 : qty,
+        logged_by: loggedBy,
+      };
+    });
+    const { error } = await db.from('daily_usage_log').upsert(rows, { onConflict: 'date,item_id' });
+    if(error){ showToast('Failed to save log.', 'error'); console.error(error); return; }
+    showToast('Log saved!', 'success');
+    loadInventoryData();
+  });
+
+  // ---- Summary sub-tab ----
+  function renderInventorySummary(){
+    const items = inventoryItems.filter(i => i.category === 'Consumable');
+    const tbody = document.getElementById('invSummaryBody');
+    if(items.length === 0){
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-msg">No consumable items yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(item => {
+      const totalUsed = dailyUsageLog.filter(l => l.item_id === item.id).reduce((sum, l) => sum + Number(l.qty_used || 0), 0);
+      const totalAvailable = Number(item.starting_stock || 0) + Number(item.restock_added || 0);
+      const remaining = totalAvailable - totalUsed;
+      const pct = totalAvailable > 0 ? remaining / totalAvailable : (remaining > 0 ? 1 : 0);
+      let statusClass = 'inv-good', statusLabel = '🟢 Good';
+      if(remaining <= 0){ statusClass = 'inv-out'; statusLabel = '🔴 Out of Stock'; }
+      else if(pct <= 0.05){ statusClass = 'inv-critical'; statusLabel = '🔴 Critical'; }
+      else if(pct <= 0.20){ statusClass = 'inv-low'; statusLabel = '🟡 Low Stock'; }
+      return `<tr>
+        <td>${escapeHtml(item.item_name)}</td>
+        <td>${escapeHtml(item.unit)}</td>
+        <td>${formatQty(item.starting_stock)}</td>
+        <td>${formatQty(totalUsed)}</td>
+        <td>${formatQty(item.restock_added)}</td>
+        <td>${formatQty(remaining)}</td>
+        <td><span class="inv-status ${statusClass}">${statusLabel}</span></td>
+        <td class="inv-actions">
+          <button class="action-btn edit-btn" data-action="invEditStock" data-id="${item.id}">Edit</button>
+          <button class="action-btn" data-action="invRestock" data-id="${item.id}">Restock</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  function openInvEditStock(id){
+    const item = inventoryItems.find(i => i.id === id);
+    if(!item) return;
+    invEditStockItemId = id;
+    document.getElementById('invEditStockSubtitle').textContent = item.item_name;
+    document.getElementById('invEditStockForm').starting_stock.value = item.starting_stock;
+    showModal('invEditStockModal');
+  }
+  document.getElementById('invEditStockForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const val = parseFloat(e.target.starting_stock.value);
+    const { error } = await db.from('inventory_items').update({ starting_stock: isNaN(val) ? 0 : val }).eq('id', invEditStockItemId);
+    if(error){ showToast('Failed to update stock.', 'error'); console.error(error); return; }
+    showToast('Starting stock updated!', 'success');
+    hideModal('invEditStockModal');
+    loadInventoryData();
+  });
+
+  function openInvRestock(id){
+    const item = inventoryItems.find(i => i.id === id);
+    if(!item) return;
+    invRestockItemId = id;
+    document.getElementById('invRestockSubtitle').textContent = `${item.item_name} — currently ${formatQty(item.restock_added)} ${item.unit} restocked`;
+    document.getElementById('invRestockForm').reset();
+    showModal('invRestockModal');
+  }
+  document.getElementById('invRestockForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const item = inventoryItems.find(i => i.id === invRestockItemId);
+    if(!item) return;
+    const addQty = parseFloat(e.target.restock_qty.value);
+    if(isNaN(addQty) || addQty <= 0){ showToast('Enter a valid quantity.', 'error'); return; }
+    const newRestock = Number(item.restock_added || 0) + addQty;
+    const { error } = await db.from('inventory_items').update({ restock_added: newRestock }).eq('id', invRestockItemId);
+    if(error){ showToast('Failed to restock.', 'error'); console.error(error); return; }
+    showToast('Stock added!', 'success');
+    hideModal('invRestockModal');
+    loadInventoryData();
+  });
+
+  document.getElementById('invAddItemBtn').addEventListener('click', () => {
+    document.getElementById('invAddItemForm').reset();
+    showModal('invAddItemModal');
+  });
+  document.getElementById('invAddItemForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const fd = new FormData(e.target);
+    const payload = {
+      item_name: (fd.get('item_name') || '').trim(),
+      unit: (fd.get('unit') || '').trim(),
+      category: fd.get('category'),
+      starting_stock: parseFloat(fd.get('starting_stock')) || 0,
+    };
+    if(!payload.item_name || !payload.unit || !payload.category){ showToast('Please fill in all required fields.', 'error'); return; }
+    const { error } = await db.from('inventory_items').insert([payload]);
+    if(error){ showToast('Failed to add item.', 'error'); console.error(error); return; }
+    showToast('Item added!', 'success');
+    e.target.reset();
+    hideModal('invAddItemModal');
+    loadInventoryData();
+  });
+
+  // ---- Equipment sub-tab ----
+  function renderInventoryEquipment(){
+    const items = inventoryItems.filter(i => i.category === 'Equipment');
+    const tbody = document.getElementById('invEquipmentBody');
+    if(items.length === 0){
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">No equipment items yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map(item => `
+      <tr data-id="${item.id}">
+        <td>${escapeHtml(item.item_name)}</td>
+        <td><input type="number" class="eq-qty-input" min="0" step="any" value="${item.starting_stock}"></td>
+        <td><input type="text" class="eq-condition-input" value="${escapeHtml(item.condition || '')}"></td>
+        <td><input type="text" class="eq-notes-input" value="${escapeHtml(item.notes || '')}"></td>
+        <td><button class="action-btn" data-action="invSaveEquipment" data-id="${item.id}">Save</button></td>
+      </tr>
+    `).join('');
+  }
+
+  async function saveEquipmentRow(id){
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const row = document.querySelector(`#invEquipmentBody tr[data-id="${id}"]`);
+    if(!row) return;
+    const qty = parseFloat(row.querySelector('.eq-qty-input').value);
+    const condition = row.querySelector('.eq-condition-input').value.trim() || null;
+    const notes = row.querySelector('.eq-notes-input').value.trim() || null;
+    const { error } = await db.from('inventory_items').update({
+      starting_stock: isNaN(qty) ? 0 : qty,
+      condition,
+      notes,
+    }).eq('id', id);
+    if(error){ showToast('Failed to save equipment.', 'error'); console.error(error); return; }
+    showToast('Equipment updated!', 'success');
+    loadInventoryData();
+  }
+
+  document.getElementById('invAddEquipmentBtn').addEventListener('click', () => {
+    document.getElementById('invAddEquipmentForm').reset();
+    showModal('invAddEquipmentModal');
+  });
+  document.getElementById('invAddEquipmentForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    if(!isConfigured){ showToast('Supabase is not configured yet.', 'error'); return; }
+    const fd = new FormData(e.target);
+    const payload = {
+      item_name: (fd.get('item_name') || '').trim(),
+      unit: 'pcs',
+      category: 'Equipment',
+      starting_stock: parseFloat(fd.get('starting_stock')) || 0,
+      condition: (fd.get('condition') || '').trim() || null,
+      notes: (fd.get('notes') || '').trim() || null,
+    };
+    if(!payload.item_name){ showToast('Please enter an item name.', 'error'); return; }
+    const { error } = await db.from('inventory_items').insert([payload]);
+    if(error){ showToast('Failed to add equipment.', 'error'); console.error(error); return; }
+    showToast('Equipment added!', 'success');
+    e.target.reset();
+    hideModal('invAddEquipmentModal');
+    loadInventoryData();
+  });
+
+  // ---- Inventory sub-tab nav ----
+  document.getElementById('invSubTabs').addEventListener('click', e => {
+    const btn = e.target.closest('[data-invtab]');
+    if(!btn) return;
+    document.querySelectorAll('#invSubTabs [data-invtab]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.inv-subpanel').forEach(p => p.classList.remove('active'));
+    document.getElementById('invPanel-' + btn.dataset.invtab).classList.add('active');
+  });
+
+  let inventoryRealtimeSubscribed = false;
+  function subscribeInventoryRealtime(){
+    if(!isConfigured || inventoryRealtimeSubscribed) return;
+    inventoryRealtimeSubscribed = true;
+    db.channel('inventory-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, () => loadInventoryData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_usage_log' }, () => loadInventoryData())
+      .subscribe();
+  }
+
   // ---- Realtime + polling refresh ----
   let realtimeSubscribed = false;
   function subscribeRealtime(){
@@ -1359,6 +1838,8 @@
     document.getElementById('appContent').classList.remove('hidden');
     loadBookings();
     subscribeRealtime();
+    loadInventoryData();
+    subscribeInventoryRealtime();
   }
   function showLogin(){
     document.getElementById('appContent').classList.add('hidden');
